@@ -36,7 +36,7 @@ class RBM(object):
         
         Wv = np.matmul(v_sample,W) + h_bias
         hidden = np.log(1+np.exp(Wv)).sum(1)
-        vbias = np.matmul(v_sample, self.v_bias.T)
+        vbias = np.matmul(v_sample, self.v_bias.T).reshape(len(hidden))
         return -hidden-vbias
 
     
@@ -85,7 +85,7 @@ class RBM(object):
 
 
                 logZ = logZ0 + np.log(ratio/M)
-
+                
         return logZ
 
     def mcmc(self, step):
@@ -109,4 +109,16 @@ def logp_ais(trained_model, v_input,step = 1000, M = 100, parallel = False):
 	h_bias = trained_model.h_bias.data.numpy()
 	n_visible, n_hidden = W.shape
 	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
+	print(rbm.free_energy(v_input, W, h_bias))
+	print(rbm.free_energy(v_input, W, h_bias).shape)
 	return -np.mean(rbm.free_energy(v_input, W, h_bias))-rbm.ais(step = step, M = M, parallel = parallel)
+
+def get_partition_function(trained_model, step = 1000, M = 100, parallel = False):
+	W = trained_model.W.data.numpy()
+	v_bias = trained_model.v_bias.data.numpy()
+	h_bias = trained_model.h_bias.data.numpy()
+	n_visible, n_hidden = W.shape
+	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
+	return rbm.ais(step = step, M = M, parallel = parallel)
+
+

@@ -61,13 +61,15 @@ class RBM(object):
         
         Wv = np.matmul(v_sample,W) + self.h_bias
         hidden = np.log(1+np.exp(Wv)).sum(1)
-        vbias = np.matmul(v_sample, self.v_bias.T)
+        vbias = np.matmul(v_sample, self.v_bias.T).reshape(len(hidden))
         return -hidden-vbias
 
+
+    
     def free_energy_hidden(self, h_sample, W):
         Wh = np.matmul(h_sample, W.T) + self.v_bias
         hidden = np.log(1+np.exp(Wh)).sum(1)
-        hbias = np.matmul(h_sample, self.h_bias.T)
+        hbias = np.matmul(h_sample, self.h_bias.T).reshape(len(hidden))
         return -hidden - hbias
     
     def sample_h_given_v(self, v0_sample, W,h_bias):
@@ -136,7 +138,6 @@ class RBM(object):
     def get_logZ(self, step = 1000, M = 100, parallel = False):
         
         self.logZ = self.ais(step = step, M = M, parallel = parallel)
-        #print(self.logZ)
 
         return self.logZ
     
@@ -149,7 +150,7 @@ def logp_ais(trained_model, v_input, step = 1000, M_Z = 1000, M_IS = 10000, para
     dbn = DBN(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias, trained = True)
     dbn.rbm_layers[-1].get_logZ(step = step, M = M_Z, parallel = parallel)
     logw_ulogprob = ulogprob(v_input, dbn, M = M_IS, parallel = parallel)
-    return np.mean(logw_ulogprob - dbn.rbm_layers[-1].logZ)
+    return np.mean(logw_ulogprob) - dbn.rbm_layers[-1].logZ
 
 def ulogprob(v_input, dbn, M = 1000, parallel = False):
     logw = np.zeros([M, len(v_input)])
@@ -175,10 +176,10 @@ def important_sampling(v_input, dbn):
     samples = v_input
     logw = np.zeros(len(v_input))
     for l in range(dbn.n_layers-1):
-        logw += -dbn.rbm_layers[l].free_energy(samples,dbn.rbm_layers[l].W)[0]
+        logw += -dbn.rbm_layers[l].free_energy(samples,dbn.rbm_layers[l].W)
         samples = dbn.rbm_layers[l].sample_h_given_v(samples,dbn.rbm_layers[l].W,dbn.rbm_layers[l].h_bias)[0]
-        logw -= -dbn.rbm_layers[l].free_energy_hidden(samples,dbn.rbm_layers[l].W)[0]
-    logw += -dbn.rbm_layers[-1].free_energy(samples,dbn.rbm_layers[-1].W)[0]
+        logw -= -dbn.rbm_layers[l].free_energy_hidden(samples,dbn.rbm_layers[l].W)
+    logw += -dbn.rbm_layers[-1].free_energy(samples,dbn.rbm_layers[-1].W)
     return logw
 
 def logmeanexp(x, axis=None):
