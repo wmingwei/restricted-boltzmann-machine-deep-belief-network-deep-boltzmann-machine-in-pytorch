@@ -73,7 +73,7 @@ class RBM(object):
     def sample_h_given_v(self, v0_sample, W,h_bias):
         
         activation = np.matmul(v0_sample,W) + h_bias
-        h1_mean = 1/(1+np.exp(-activation))
+        h1_mean = 1/(1+np.exp(-np.clip(activation,-100,100)))
         h1_sample = np.random.binomial(1, p=h1_mean)
 
         return [h1_sample, h1_mean]
@@ -82,7 +82,7 @@ class RBM(object):
     def sample_v_given_h(self, h0_sample, W, h_bias):
 
         activation = np.matmul(h0_sample, W.T) + self.v_bias
-        v1_mean = 1/(1+np.exp(-activation))
+        v1_mean = 1/(1+np.exp(-np.clip(activation,-100,100)))
         v1_sample = np.random.binomial(1, p=v1_mean)
         return [v1_sample, v1_mean]
 
@@ -140,7 +140,7 @@ class RBM(object):
 
         return self.logZ
     
-def ais(trained_model, v_input, step = 1000, M_Z = 1000, M_IS = 10000, parallel = False):
+def logp_ais(trained_model, v_input, step = 1000, M_Z = 1000, M_IS = 10000, parallel = False):
     W = [i.W.data.numpy() for i in trained_model.rbm_layers]
     v_bias = [i.v_bias.data.numpy() for i in trained_model.rbm_layers]
     h_bias = [i.h_bias.data.numpy() for i in trained_model.rbm_layers]
@@ -149,7 +149,7 @@ def ais(trained_model, v_input, step = 1000, M_Z = 1000, M_IS = 10000, parallel 
     dbn = DBN(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias, trained = True)
     dbn.rbm_layers[-1].get_logZ(step = step, M = M_Z, parallel = parallel)
     logw_ulogprob = ulogprob(v_input, dbn, M = M_IS, parallel = parallel)
-    return logw_ulogprob - dbn.rbm_layers[-1].logZ
+    return np.mean(logw_ulogprob - dbn.rbm_layers[-1].logZ)
 
 def ulogprob(v_input, dbn, M = 1000, parallel = False):
     logw = np.zeros([M, len(v_input)])
