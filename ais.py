@@ -73,18 +73,19 @@ class RBM(object):
     def ais(self, step = 100, M = 100, parallel = False):
 
         logZ0 = np.log((1+np.exp(self.v_bias))).sum() + np.log(1+np.exp(self.h_bias)).sum()
-        ratio = 0
+        ratio = []
         if parallel:
             num_cores = multiprocessing.cpu_count()
 
             results = Parallel(n_jobs=2)(delayed(self.mcmc)(step = step) for i in range(M))
-            logZ = logZ0 + np.log(np.mean(results))
+            results = np.array(results).reshape(len(results), 1)
+            logZ = logZ0 + logmeanexp(results, axis = 0)
         else:
             for i in range(M):
-                ratio += self.mcmc(step)
-
-
-                logZ = logZ0 + np.log(ratio/M)
+                ratio.append(self.mcmc(step))
+                
+            ratio = np.array(ratio).reshape(len(ratio),1)
+            logZ = logZ0 + logmeanexp(ratio, axis = 0)
                 
         return logZ
 
@@ -101,7 +102,7 @@ class RBM(object):
             
 
             v= self.gibbs_vhv(v, (k+1)*1.0/step*self.W, self.h_bias)[1]
-        return np.exp(logw)
+        return logw
 
 def logp_ais(trained_model, v_input,step = 1000, M = 100, parallel = False):
 	W = trained_model.W.data.numpy()
@@ -109,8 +110,6 @@ def logp_ais(trained_model, v_input,step = 1000, M = 100, parallel = False):
 	h_bias = trained_model.h_bias.data.numpy()
 	n_visible, n_hidden = W.shape
 	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
-	print(rbm.free_energy(v_input, W, h_bias))
-	print(rbm.free_energy(v_input, W, h_bias).shape)
 	return -np.mean(rbm.free_energy(v_input, W, h_bias))-rbm.ais(step = step, M = M, parallel = parallel)
 
 def get_partition_function(trained_model, step = 1000, M = 100, parallel = False):
@@ -121,4 +120,13 @@ def get_partition_function(trained_model, step = 1000, M = 100, parallel = False
 	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
 	return rbm.ais(step = step, M = M, parallel = parallel)
 
-
+def logmeanexp(x, axis=None):
+    
+    x = np.asmatrix(x)
+    if not axis:
+        n = len(x)
+    else:
+        n = x.shape[axis]
+    
+    x_max = x.max(axis)
+    return (x_max + np.log(np.exp(x-x_max).sum(axis)) - np.log(n)).A

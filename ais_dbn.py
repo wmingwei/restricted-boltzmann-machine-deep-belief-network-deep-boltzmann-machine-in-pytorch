@@ -105,18 +105,19 @@ class RBM(object):
     def ais(self, step = 100, M = 100, parallel = False):
 
         logZ0 = np.log((1+np.exp(self.v_bias))).sum() + np.log(1+np.exp(self.h_bias)).sum()
-        ratio = 0
+        ratio = []
         if parallel:
             num_cores = multiprocessing.cpu_count()
 
             results = Parallel(n_jobs=num_cores)(delayed(self.mcmc)(step = step) for i in range(M))
-            logZ = logZ0 + np.log(np.mean(results))
+            results = np.array(results).reshape(len(results), 1)
+            logZ = logZ0 + logmeanexp(results, axis = 0)
         else:
             for i in range(M):
-                ratio += self.mcmc(step)
+                ratio.append(self.mcmc(step))
 
-
-                logZ = logZ0 + np.log(ratio/M)
+            ratio = np.array(ratio).reshape(len(ratio), 1)
+            logZ = logZ0 + logmeanexp(ratio, axis = 0)
 
         return logZ
 
@@ -133,7 +134,7 @@ class RBM(object):
             
 
             v= self.gibbs_vhv(v, (k+1)*1.0/step*self.W, self.h_bias)[1]
-        return np.exp(logw)
+        return logw
     
     def get_logZ(self, step = 1000, M = 100, parallel = False):
         
