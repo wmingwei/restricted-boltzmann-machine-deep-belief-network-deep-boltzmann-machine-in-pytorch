@@ -2,6 +2,7 @@ import torch
 import numpy
 from torch.autograd import Variable
 from torch.utils import data as dtf
+from torch import optim
 
 class RBM(object):
     
@@ -70,7 +71,7 @@ class RBM(object):
     
         
     
-    def get_cost_update(self, lr = 1e-4, k=10, v_input = None):
+    def get_cost_update(self, lr = 1e-2, k=10, v_input = None, optimizer = None):
         
         chain_v = v_input
         
@@ -78,31 +79,26 @@ class RBM(object):
             chain_h, chain_v, chain_pv  = self.gibbs_vhv(chain_v, self.W, self.h_bias)
 
         loss = torch.mean(self.free_energy(v_input, self.W, self.h_bias)) - torch.mean(self.free_energy(chain_v.detach(), self.W, self.h_bias))
-
-
-        loss.backward()
-        
-        if numpy.isnan(self.W.grad.data.numpy()).any():
-            print('nan')
             
             
-        if torch.sum(self.W.grad.data*self.W.grad.data) > 1000:
-            self.W.grad.data = self.W.grad.data * 1000.0 / torch.sum(self.W.grad.data*self.W.grad.data)
-            
-        if torch.sum(self.v_bias.grad.data*self.v_bias.grad.data) > 1000:
-            self.v_bias.grad.data = self.v_bias.grad.data * 1000.0 / torch.sum(self.v_bias.grad.data*self.v_bias.grad.data)
-        if torch.sum(self.h_bias.grad.data*self.h_bias.grad.data) > 1000:
-            self.h_bias.grad.data = self.h_bias.grad.data * 1000.0 / torch.sum(self.h_bias.grad.data*self.h_bias.grad.data)            
+        
+        if optimizer == None:
+            loss.backward()
+                   
         
         
-        self.W.data -= lr*self.W.grad.data
-        self.v_bias.data -= lr*self.v_bias.grad.data
-        self.h_bias.data -= lr*self.h_bias.grad.data
+            self.W.data -= lr*self.W.grad.data
+            self.v_bias.data -= lr*self.v_bias.grad.data
+            self.h_bias.data -= lr*self.h_bias.grad.data
 
-        self.W.grad.data.zero_()
-        self.v_bias.grad.data.zero_()
-        self.h_bias.grad.data.zero_()
-        
+            self.W.grad.data.zero_()
+            self.v_bias.grad.data.zero_()
+            self.h_bias.grad.data.zero_()
+        else:
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            
         moniter_cost = self.reconstruct_cost(v_input)
         
         return moniter_cost
@@ -114,12 +110,18 @@ class RBM(object):
 
         return cost
     
-    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None):
+    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None):
         train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
         
+        if optimization_method == "RMSprop":
+            params = [self.W.data, self.v_bias.data, self.h_bias.data]
+            optimizer = optim.RMSprop(params, lr = lr)
+        else:
+            optimizer = None
+            
         for i in range(epoch):
             cost = 0
             for batch_idx, (data, target) in enumerate(train_loader):
-                cost += self.get_cost_update(lr = lr, v_input = Variable(data,requires_grad = False)).data
+                cost += self.get_cost_update(lr = lr, v_input = Variable(data,requires_grad = False), optimizer = optimizer).data
             print(cost)         

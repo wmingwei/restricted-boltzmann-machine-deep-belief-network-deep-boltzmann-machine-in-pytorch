@@ -34,7 +34,7 @@ class RBM(object):
 
     def free_energy(self, v_sample, W, h_bias):
         
-        Wv = np.matmul(v_sample,W) + h_bias
+        Wv = np.clip(np.matmul(v_sample,W) + h_bias,-80,80)
         hidden = np.log(1+np.exp(Wv)).sum(1)
         vbias = np.matmul(v_sample, self.v_bias.T).reshape(len(hidden))
         return -hidden-vbias
@@ -42,7 +42,7 @@ class RBM(object):
     
     def sample_h_given_v(self, v0_sample, W,h_bias):
         
-        activation = np.matmul(v0_sample,W) + h_bias
+        activation = np.clip(np.matmul(v0_sample,W) + h_bias,-80,80)
         h1_mean = 1/(1+np.exp(-activation))
         h1_sample = np.random.binomial(1, p=h1_mean)
 
@@ -51,7 +51,7 @@ class RBM(object):
     
     def sample_v_given_h(self, h0_sample, W, h_bias):
 
-        activation = np.matmul(h0_sample, W.T) + self.v_bias
+        activation = np.clip(np.matmul(h0_sample, W.T) + self.v_bias,-80,80)
         v1_mean = 1/(1+np.exp(-activation))
         v1_sample = np.random.binomial(1, p=v1_mean)
         return [v1_sample, v1_mean]
