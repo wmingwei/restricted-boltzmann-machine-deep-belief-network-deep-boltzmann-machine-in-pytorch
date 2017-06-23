@@ -28,21 +28,15 @@ class DBN(object):
                               batch_size = batch_size)
             self.rbm_layers.append(rbm)
     
-    def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None):
+    def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None, optimization_method = None):
         
-        train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
-        train_loader = dtf.DataLoader(train_set, batch_size = batch_size[0], shuffle=True)
         for ith_rbm in range(self.n_layers):
             print("training rbm %i" %ith_rbm)
             if ith_rbm:
                 input_data = self.rbm_layers[ith_rbm-1].sample_h_given_v(Variable(input_data,requires_grad = False),
                                                                 W = self.rbm_layers[ith_rbm-1].W,
                                                                 h_bias = self.rbm_layers[ith_rbm-1].h_bias)[0].data
-                train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
-                train_loader = dtf.DataLoader(train_set, batch_size = batch_size[ith_rbm], shuffle=True)
                 print("rbm %i data ready" %ith_rbm)
-            for i in range(epoch[ith_rbm]):
-                cost = 0
-                for batch_idx, (data, target) in enumerate(train_loader):
-                    cost += self.rbm_layers[ith_rbm].get_cost_update(lr = lr[ith_rbm], v_input = Variable(data,requires_grad = False)).data
-                print(cost)            
+             
+            self.rbm_layers[ith_rbm].train(lr = lr[ith_rbm], epoch = epoch[ith_rbm], batch_size = batch_size[ith_rbm], 
+                                          input_data = input_data, optimization_method = optimization_method)         

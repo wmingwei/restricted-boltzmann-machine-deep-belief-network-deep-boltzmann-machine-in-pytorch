@@ -69,8 +69,15 @@ class RBM(object):
         
         return [h1_sample, v1_sample, p_v1]
     
+    def generate(self, iteration = 1):
+       
+        h_samples = torch.bernoulli(self.h_bias *0 + 0.5)
+        for i in range(iteration-1):
+            v_samples, h_samples, chain_ph  = self.gibbs_hvh(h_samples, self.W, self.h_bias)
+        v_samples = self.sample_v_given_h(h_samples, self.W, self.h_bias)[0]
         
-    
+        return v_samples
+            
     def get_cost_update(self, lr = 1e-2, k=10, v_input = None, optimizer = None):
         
         chain_v = v_input
@@ -115,7 +122,7 @@ class RBM(object):
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
         
         if optimization_method == "RMSprop":
-            params = [self.W.data, self.v_bias.data, self.h_bias.data]
+            params = [self.W, self.v_bias, self.h_bias]
             optimizer = optim.RMSprop(params, lr = lr)
         else:
             optimizer = None
