@@ -97,6 +97,9 @@ class RBM(object):
             self.W.data -= lr*self.W.grad.data
             self.v_bias.data -= lr*self.v_bias.grad.data
             self.h_bias.data -= lr*self.h_bias.grad.data
+            
+            #print(torch.mean(v_input), torch.mean(self.W.grad.data))
+            
 
             self.W.grad.data.zero_()
             self.v_bias.grad.data.zero_()
@@ -117,7 +120,7 @@ class RBM(object):
 
         return cost
     
-    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None):
+    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1):
         train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
         
@@ -130,5 +133,5 @@ class RBM(object):
         for i in range(epoch):
             cost = 0
             for batch_idx, (data, target) in enumerate(train_loader):
-                cost += self.get_cost_update(lr = lr, v_input = Variable(data,requires_grad = False), optimizer = optimizer).data
-            print(cost)         
+                cost += self.get_cost_update(lr = lr, k = CD_k, v_input = Variable(data,requires_grad = False), optimizer = optimizer).data
+            print(cost)

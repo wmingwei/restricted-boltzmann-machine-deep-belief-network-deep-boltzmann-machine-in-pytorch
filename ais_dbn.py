@@ -142,7 +142,7 @@ class RBM(object):
 
         return self.logZ
     
-def logp_ais(trained_model, v_input, step = 1000, M_Z = 1000, M_IS = 10000, parallel = False):
+def logp_ais(trained_model, v_input, step = 1000, M_Z = 100, M_IS = 100, parallel = False):
     W = [i.W.data.numpy() for i in trained_model.rbm_layers]
     v_bias = [i.v_bias.data.numpy() for i in trained_model.rbm_layers]
     h_bias = [i.h_bias.data.numpy() for i in trained_model.rbm_layers]
