@@ -28,7 +28,8 @@ class DBN(object):
                               batch_size = batch_size)
             self.rbm_layers.append(rbm)
     
-    def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None, optimization_method = None):
+    def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None, 
+                     CD_k = 1, optimization_method = None):
         
         for ith_rbm in range(self.n_layers):
             print("training rbm %i" %ith_rbm)
@@ -39,4 +40,11 @@ class DBN(object):
                 print("rbm %i data ready" %ith_rbm)
              
             self.rbm_layers[ith_rbm].train(lr = lr[ith_rbm], epoch = epoch[ith_rbm], batch_size = batch_size[ith_rbm], 
-                                          input_data = input_data, optimization_method = optimization_method)         
+                                          input_data = input_data, CD_k = CD_k, optimization_method = optimization_method)
+            
+    def generate(self, iteration = 1):
+        
+        v_sample = self.rbm_layers[-1].generate(iteration = iteration)
+        for i in range(self.n_layers-1):
+            v_sample = self.rbm_layers[-2-i].sample_v_given_h(v_sample, self.rbm_layers[-2-i].W, self.rbm_layers[-2-i].h_bias)[0]
+        return v_sample

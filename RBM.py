@@ -15,9 +15,12 @@ class RBM(object):
         
         if not W:
             initial_W = numpy.asarray(
-                numpy.random.normal(loc = 0, scale = 1/n_visible,
-                    size=(n_visible, n_hidden)
-                    ),
+                #numpy.random.normal(loc = 0, scale = 1/n_visible,
+                 #   size=(n_visible, n_hidden)
+                 #   ),
+                numpy.random.uniform(low = -1/numpy.sqrt(n_visible+n_hidden),
+                                    high = 1/numpy.sqrt(n_visible+n_hidden),
+                                    size=(n_visible, n_hidden))
                 )
             W = Variable(torch.from_numpy(initial_W).type(torch.FloatTensor), requires_grad = True)
             
@@ -120,13 +123,15 @@ class RBM(object):
 
         return cost
     
-    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1):
+    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1, momentum = 0):
         train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
+        params = [self.W, self.v_bias, self.h_bias]
         
         if optimization_method == "RMSprop":
-            params = [self.W, self.v_bias, self.h_bias]
             optimizer = optim.RMSprop(params, lr = lr)
+        elif optimization_method == "SGD":
+            optimizer = optim.SGD(params, lr = lr, momentum = momentum)
         else:
             optimizer = None
             
@@ -134,4 +139,4 @@ class RBM(object):
             cost = 0
             for batch_idx, (data, target) in enumerate(train_loader):
                 cost += self.get_cost_update(lr = lr, k = CD_k, v_input = Variable(data,requires_grad = False), optimizer = optimizer).data
-            print(cost)
+            #print(cost)
