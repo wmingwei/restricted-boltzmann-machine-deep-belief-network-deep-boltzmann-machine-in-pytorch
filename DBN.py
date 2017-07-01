@@ -6,7 +6,7 @@ from torch.utils import data as dtf
 
 class DBN(object):
     def __init__(self, n_visible = 1600, n_hidden = [32,16], W = None, v_bias = None, h_bias=None,
-                 batch_size = 50, trained = False):
+                 trained = False):
         self.rbm_layers = []
         self.n_layers = len(n_hidden)
         
@@ -20,27 +20,26 @@ class DBN(object):
                               n_hidden = n_hidden[i],
                               W = W[i],
                               h_bias = h_bias[i],
-                              v_bias = v_bias[i],
-                              batch_size = batch_size)
+                              v_bias = v_bias[i])
             else:
                 rbm = RBM.RBM(n_visible = input_size, 
-                              n_hidden = n_hidden[i],
-                              batch_size = batch_size)
+                              n_hidden = n_hidden[i])
             self.rbm_layers.append(rbm)
     
     def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None, 
-                     CD_k = 1, optimization_method = None):
+                     CD_k = 1, optimization_method = None, momentum = 0, gradient = False):
         
         for ith_rbm in range(self.n_layers):
-            print("training rbm %i" %ith_rbm)
+            #print("training rbm %i" %ith_rbm)
             if ith_rbm:
                 input_data = self.rbm_layers[ith_rbm-1].sample_h_given_v(Variable(input_data,requires_grad = False),
                                                                 W = self.rbm_layers[ith_rbm-1].W,
                                                                 h_bias = self.rbm_layers[ith_rbm-1].h_bias)[0].data
-                print("rbm %i data ready" %ith_rbm)
+                #print("rbm %i data ready" %ith_rbm)
              
             self.rbm_layers[ith_rbm].train(lr = lr[ith_rbm], epoch = epoch[ith_rbm], batch_size = batch_size[ith_rbm], 
-                                          input_data = input_data, CD_k = CD_k, optimization_method = optimization_method)
+                                          input_data = input_data, CD_k = CD_k, optimization_method = optimization_method,
+                                          momentum = 0, gradient = gradient)
             
     def generate(self, iteration = 1):
         
