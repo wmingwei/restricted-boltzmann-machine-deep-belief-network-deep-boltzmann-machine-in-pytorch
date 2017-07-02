@@ -39,7 +39,7 @@ class DBN(object):
              
             self.rbm_layers[ith_rbm].train(lr = lr[ith_rbm], epoch = epoch[ith_rbm], batch_size = batch_size[ith_rbm], 
                                           input_data = input_data, CD_k = CD_k, optimization_method = optimization_method,
-                                          momentum = 0, gradient = gradient)
+                                          momentum = momentum, gradient = gradient)
             
     def generate(self, iteration = 1):
         
