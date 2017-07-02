@@ -73,10 +73,9 @@ class RBM(object):
     
     def generate(self, iteration = 1):
        
-        h_samples = torch.bernoulli(self.h_bias *0 + 0.5)
-        for i in range(iteration-1):
-            v_samples, h_samples, chain_ph  = self.gibbs_hvh(h_samples, self.W, self.h_bias)
-        v_samples = self.sample_v_given_h(h_samples, self.W, self.h_bias)[0]
+        v_samples = torch.bernoulli(self.v_bias *0 + 0.5)
+        for i in range(iteration):
+            h_samples, v_samples, chain_pv  = self.gibbs_vhv(v_samples, self.W, self.h_bias)
         
         return v_samples
             
@@ -129,20 +128,24 @@ class RBM(object):
 
         return cost
     
-    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1, momentum = 0, gradient = False):
+    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1, momentum = 0, gradient = False, optimizer = None):
         train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
         params = [self.W, self.v_bias, self.h_bias]
-            
-        if optimization_method == "RMSprop":
-            optimizer = optim.RMSprop(params, lr = lr)
-        elif optimization_method == "SGD":
-            optimizer = optim.SGD(params, lr = lr, momentum = momentum)
+        
+        if not optimizer:
+            if optimization_method == "RMSprop":
+                optimizer = optim.RMSprop(params, lr = lr)
+            elif optimization_method == "SGD":
+                optimizer = optim.SGD(params, lr = lr, momentum = momentum)
+            else:
+                optimizer = None
         else:
-            optimizer = None
+            optimizer = optimizer
             
         for i in range(epoch):
             cost = 0
             for batch_idx, (data, target) in enumerate(train_loader):
                 cost += self.get_cost_update(lr = lr, k = CD_k, v_input = Variable(data,requires_grad = False), optimizer = optimizer, gradient = gradient, batch_size = batch_size).data
-            #print(cost)
+            print(cost)
+        return optimizer
