@@ -79,7 +79,7 @@ class RBM(object):
         
         return v_samples
             
-    def get_cost_update(self, lr = 1e-2, k=10, v_input = None, optimizer = None, gradient = False, batch_size = 50):
+    def get_cost_update(self, lr = 1e-2, k=10, v_input = None, optimizer = None, gradient = False, batch_size = 50, L2_penalty = 0):
         
         chain_v = v_input
         
@@ -88,7 +88,7 @@ class RBM(object):
         for i in range(k):
             chain_h, chain_v, chain_pv  = self.gibbs_vhv(chain_v, self.W, self.h_bias)
         
-        loss = torch.mean(self.free_energy(v_input, self.W, self.h_bias)) - torch.mean(self.free_energy(chain_v.detach(), self.W, self.h_bias))
+        loss = torch.mean(self.free_energy(v_input, self.W, self.h_bias)) - torch.mean(self.free_energy(chain_v.detach(), self.W, self.h_bias)) + (L2_penalty * self.W ** 2).sum()
 
         loss.backward()    
         if not gradient:
@@ -128,7 +128,7 @@ class RBM(object):
 
         return cost
     
-    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1, momentum = 0, gradient = False, optimizer = None):
+    def train(self, lr = 1e-2, epoch = 100, batch_size = 50, input_data = None, optimization_method = None, CD_k = 1, momentum = 0, gradient = False, optimizer = None, L2_penalty = 0):
         train_set = dtf.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
         train_loader = dtf.DataLoader(train_set, batch_size = batch_size, shuffle=True)
         params = [self.W, self.v_bias, self.h_bias]
@@ -146,6 +146,6 @@ class RBM(object):
         for i in range(epoch):
             cost = 0
             for batch_idx, (data, target) in enumerate(train_loader):
-                cost += self.get_cost_update(lr = lr, k = CD_k, v_input = Variable(data,requires_grad = False), optimizer = optimizer, gradient = gradient, batch_size = batch_size).data
-            print(cost)
+                cost += self.get_cost_update(lr = lr, k = CD_k, v_input = Variable(data,requires_grad = False), optimizer = optimizer, gradient = gradient, batch_size = batch_size, L2_penalty = L2_penalty).data
+            #print(cost)
         return optimizer
