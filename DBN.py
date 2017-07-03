@@ -27,7 +27,7 @@ class DBN(object):
             self.rbm_layers.append(rbm)
     
     def greedy_train(self, lr = [1e-2, 1e-2], epoch = [100,100], batch_size = [50, 50], input_data = None, 
-                     CD_k = 1, optimization_method = None, momentum = 0, gradient = False):
+                     CD_k = 1, optimization_method = None, momentum = 0, gradient = False, L2_penalty = 0):
         
         for ith_rbm in range(self.n_layers):
             #print("training rbm %i" %ith_rbm)
@@ -39,7 +39,7 @@ class DBN(object):
              
             self.rbm_layers[ith_rbm].train(lr = lr[ith_rbm], epoch = epoch[ith_rbm], batch_size = batch_size[ith_rbm], 
                                           input_data = input_data, CD_k = CD_k, optimization_method = optimization_method,
-                                          momentum = momentum, gradient = gradient)
+                                          momentum = momentum, gradient = gradient, L2_penalty = L2_penalty)
             
     def generate(self, iteration = 1):
         
