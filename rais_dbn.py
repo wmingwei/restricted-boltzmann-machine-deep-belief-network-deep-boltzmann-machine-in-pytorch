@@ -59,18 +59,20 @@ class RBM(object):
 
     def free_energy(self, v_sample, W):
         
-        Wv = np.matmul(v_sample,W) + self.h_bias
+        num = len(v_sample)
+        Wv = np.clip(np.matmul(v_sample,W) + self.h_bias,-80,80)
         hidden = np.log(1+np.exp(Wv)).sum(1)
         vbias = np.matmul(v_sample, self.v_bias.T).reshape(len(hidden))
-        return -hidden-vbias
+        return -hidden.reshape(num)-vbias.reshape(num)
 
 
     
     def free_energy_hidden(self, h_sample, W):
+        num = len(h_sample)
         Wh = np.matmul(h_sample, W.T) + self.v_bias
         hidden = np.log(1+np.exp(Wh)).sum(1)
         hbias = np.matmul(h_sample, self.h_bias.T).reshape(len(hidden))
-        return -hidden - hbias
+        return -hidden.reshape(num) - hbias.reshape(num)
     
     def sample_h_given_v(self, v0_sample, W,h_bias):
         
@@ -102,44 +104,49 @@ class RBM(object):
         return [h1_sample, v1_sample, p_v1]
         
     
-    def ais(self, step = 100, M = 100, parallel = False):
-
-        logZ0 = np.log((1+np.exp(self.v_bias))).sum() + np.log(1+np.exp(self.h_bias)).sum()
-        ratio = []
-        if parallel:
+    def rais(self, data, step = 1000, M = 100, parallel = False, seed = None):
+        num_data = data.shape[0]
+        result = 0
+        if not parallel:
+            p = []
+            for i in range(M):
+                logw = self.mcmc_r(data, step, num_data)
+                p.append(logw)
+            
+            p = np.array(p)
+            logmeanp = logmeanexp(p, axis = 0)
+        else:
             num_cores = multiprocessing.cpu_count()
 
-            results = Parallel(n_jobs=num_cores)(delayed(self.mcmc)(step = step) for i in range(M))
-            results = np.array(results).reshape(len(results), 1)
-            logZ = logZ0 + logmeanexp(results, axis = 0)
-        else:
-            for i in range(M):
-                ratio.append(self.mcmc(step))
-
-            ratio = np.array(ratio).reshape(len(ratio), 1)
-            logZ = logZ0 + logmeanexp(ratio, axis = 0)
-
-        return logZ
-
-    def mcmc(self, step):
-
-        v = np.random.binomial(1, p=1/(1+np.exp(-self.v_bias)))
-
-        logw = 0
-
-        for k in range(step):
-            logp_k = -self.free_energy(v, k*1.0/step*self.W)
-            logp_k1 = -self.free_energy(v, (k+1)*1.0/step*self.W)
-            logw += logp_k1 - logp_k
+            p = Parallel(n_jobs=num_cores)(delayed(self.mcmc_r)(v = data, step = step, num_data = num_data, seed = seed) for i in range(M))
             
-
-            v= self.gibbs_vhv(v, (k+1)*1.0/step*self.W, self.h_bias)[1]
-        return logw
-    
-    def get_logZ(self, step = 1000, M = 100, parallel = False):
+            p = np.array(p)
+            
+            logmeanp = logmeanexp(p, axis = 0)
+            
+        result = logmeanp.mean()
         
-        self.logZ = self.ais(step = step, M = M, parallel = parallel)
-
+        return result
+        
+    def mcmc_r(self, v, step, num_data, seed = None):
+        np.random.seed(seed)
+        logZ0 = np.log((1+np.exp(self.v_bias))).sum() + np.log(1+np.exp(self.h_bias)).sum()        
+        #h = self.sample_h_given_v(v, self.W, self.h_bias)
+        logw = -self.free_energy(v,self.W) - logZ0
+        for k in range(step-1,-1,-1):
+            a,v,c = self.gibbs_vhv(v, (k)*1.0/step*self.W, self.h_bias)
+            logp_k = -self.free_energy(v, k*1.0/step*self.W)
+            logp_k1 = -self.free_energy(v, (k+1)*1.0/step*self.W)  
+            logw += logp_k - logp_k1
+           
+        return logw.reshape(num_data)
+    
+    def get_logZ(self, dbn, data, step = 1000, M = 100, parallel = False):
+        
+        for i in range(dbn.n_layers-1):
+            data = dbn.rbm_layers[i].sample_h_given_v(data, dbn.rbm_layers[i].W, dbn.rbm_layers[i].h_bias)[0]
+    
+        self.logZ = -self.rais(data = data, step = step, M = M, parallel = parallel) - self.free_energy(data, self.W).mean()
         return self.logZ
     
 def logp_ais(trained_model, v_input, step = 1000, M_Z = 100, M_IS = 100, parallel = False):
@@ -149,20 +156,9 @@ def logp_ais(trained_model, v_input, step = 1000, M_Z = 100, M_IS = 100, paralle
     n_visible = W[0].shape[0]
     n_hidden = [i.shape[1] for i in W]
     dbn = DBN(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias, trained = True)
-    dbn.rbm_layers[-1].get_logZ(step = step, M = M_Z, parallel = parallel)
+    dbn.rbm_layers[-1].get_logZ(dbn = dbn, data = v_input, step = step, M = M_Z, parallel = parallel)
     logw_ulogprob = ulogprob(v_input, dbn, M = M_IS, parallel = parallel)
-    return np.mean(logw_ulogprob) - dbn.rbm_layers[-1].logZ
-
-def logp_var(trained_model, v_input, step = 1000, M_Z = 100, M_IS = 100, parallel = False):
-    W = [i.W.data.numpy() for i in trained_model.rbm_layers]
-    v_bias = [i.v_bias.data.numpy() for i in trained_model.rbm_layers]
-    h_bias = [i.h_bias.data.numpy() for i in trained_model.rbm_layers]
-    n_visible = W[0].shape[0]
-    n_hidden = [i.shape[1] for i in W]
-    dbn = DBN(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias, trained = True)
-    dbn.rbm_layers[-1].get_logZ(step = step, M = M_Z, parallel = parallel)
-    logw_ulogprob = ulogprob(v_input, dbn, M = M_IS, parallel = parallel)
-    return np.var(logw_ulogprob - dbn.rbm_layers[-1].logZ)
+    return logw_ulogprob.mean() - dbn.rbm_layers[-1].logZ
 
 def ulogprob(v_input, dbn, M = 1000, parallel = False):
     logw = np.zeros([M, len(v_input)])

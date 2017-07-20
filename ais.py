@@ -70,31 +70,33 @@ class RBM(object):
         return [h1_sample, v1_sample, p_v1]
         
     
-    def ais(self, step = 100, M = 100, parallel = False):
+    def ais(self, step = 100, M = 100, parallel = False, seed = None):
 
         logZ0 = np.log((1+np.exp(self.v_bias))).sum() + np.log(1+np.exp(self.h_bias)).sum()
         ratio = []
         if parallel:
             num_cores = multiprocessing.cpu_count()
 
-            results = Parallel(n_jobs=2)(delayed(self.mcmc)(step = step) for i in range(M))
+            results = Parallel(n_jobs=num_cores)(delayed(self.mcmc)(step = step, seed = seed) for i in range(M))
+            
+           
             results = np.array(results).reshape(len(results), 1)
             logZ = logZ0 + logmeanexp(results, axis = 0)
         else:
             for i in range(M):
-                ratio.append(self.mcmc(step))
+                ratio.append(self.mcmc(step, seed = seed))
                 
             ratio = np.array(ratio).reshape(len(ratio),1)
             logZ = logZ0 + logmeanexp(ratio, axis = 0)
                 
         return logZ
-
-    def mcmc(self, step):
-
+    def mcmc(self, step, seed):
+        
+        np.random.seed(seed)
+        
         v = np.random.binomial(1, p=1/(1+np.exp(-self.v_bias)))
-
+        
         logw = 0
-
         for k in range(step):
             logp_k = -self.free_energy(v, k*1.0/step*self.W, self.h_bias)
             logp_k1 = -self.free_energy(v, (k+1)*1.0/step*self.W, self.h_bias)
@@ -102,15 +104,33 @@ class RBM(object):
             
 
             v= self.gibbs_vhv(v, (k+1)*1.0/step*self.W, self.h_bias)[1]
+
+
         return logw
 
-def logp_ais(trained_model, v_input,step = 1000, M = 100, parallel = False):
+def logp_ais(trained_model, v_input, step = 1000, M = 100, parallel = False):
 	W = trained_model.W.data.numpy()
 	v_bias = trained_model.v_bias.data.numpy()
 	h_bias = trained_model.h_bias.data.numpy()
 	n_visible, n_hidden = W.shape
 	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
 	return -np.mean(rbm.free_energy(v_input, W, h_bias))-rbm.ais(step = step, M = M, parallel = parallel)
+
+def logp_var(trained_model, v_input, step = 1000, M = 100, parallel = False):
+	W = trained_model.W.data.numpy()
+	v_bias = trained_model.v_bias.data.numpy()
+	h_bias = trained_model.h_bias.data.numpy()
+	n_visible, n_hidden = W.shape
+	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
+	return np.var(-rbm.free_energy(v_input, W, h_bias)-rbm.ais(step = step, M = M, parallel = parallel))
+
+def get_rbm(trained_model):
+	W = trained_model.W.data.numpy()
+	v_bias = trained_model.v_bias.data.numpy()
+	h_bias = trained_model.h_bias.data.numpy()
+	n_visible, n_hidden = W.shape
+	rbm = RBM(n_visible = n_visible, n_hidden = n_hidden, W = W, v_bias = v_bias, h_bias = h_bias)
+	return rbm
 
 def get_partition_function(trained_model, step = 1000, M = 100, parallel = False):
 	W = trained_model.W.data.numpy()
