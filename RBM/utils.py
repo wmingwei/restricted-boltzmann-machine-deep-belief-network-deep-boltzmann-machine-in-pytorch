@@ -26,7 +26,7 @@ def reconstruct_error(rbm, v):
     return torch.mean(torch.abs((v-recon_v))**2)
 
 
-def train(rbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weight_decay = 0, L1_penalty = 0, test_set = None):
+def train(rbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weight_decay = 0, L1_penalty = 0, test_set = None, CD_k = 10):
     
     train_set = torch.utils.data.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, shuffle=True)
@@ -36,7 +36,7 @@ def train(rbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weigh
     for i in range(epoch):
         
         for batch_idx, (data, target) in enumerate(train_loader):
-            input_data = Variable(data)
+            input_data = Variable(data, CD_k = CD_k)
             
             v, v_ = rbm(input_data)
             

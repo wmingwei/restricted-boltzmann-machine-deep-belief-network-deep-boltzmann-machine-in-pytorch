@@ -7,8 +7,7 @@ import torch
 class RBM(nn.Module):
     def __init__(self,
                  n_visible=256,
-                 n_hidden=64,
-                 CD_k=5):
+                 n_hidden=64):
         super(RBM, self).__init__()
         self.W = nn.Parameter(torch.Tensor(n_hidden,n_visible).uniform_(-1.0/(n_visible+n_hidden), 1.0/(n_visible+n_hidden)))
         self.v_bias = nn.Parameter(torch.zeros(n_visible))
@@ -28,11 +27,11 @@ class RBM(nn.Module):
         sample_v = self.sample_from_p(p_v)
         return p_v,sample_v
         
-    def forward(self,v):
+    def forward(self,v, CD_k = 10):
         pre_h1,h1 = self.v_to_h(v)
         
         h_ = h1
-        for _ in range(self.CD_k):
+        for _ in range(CD_k):
             pre_v_,v_ = self.h_to_v(h_)
             pre_h_,h_ = self.v_to_h(v_)
         
