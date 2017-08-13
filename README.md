@@ -1,1 +1,1 @@
-# annealed_importance_sampling_on_RBM_and_DBN
+# Restricted_Boltzmann_Machine_Deep_Belief_Network_with_Annealed_Importance_Sampling_in_Pytorch
