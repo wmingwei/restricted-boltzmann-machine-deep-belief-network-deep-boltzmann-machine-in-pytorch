@@ -102,7 +102,7 @@ def important_sampling(v, dbn):
         
         logw += -free_energy(v, W, h_bias, v_bias)
         v = v_to_h(v, W, h_bias, v_bias)[1]
-        logw -= -free_energy_hidden(v, W.T, .v_bias, h_bias)
+        logw -= -free_energy_hidden(v, W.T, v_bias, h_bias)
         
     logw += -free_energy(v, dbn.rbm_layers[-1].W, dbn.rbm_layers[-1].h_bias, dbn.rbm_layers[-1].v_bias)
     return logw

@@ -9,7 +9,7 @@ import multiprocessing
 
 def generate(rbm, iteration = 1, p = 0.5):
     
-    v = torch.bernoulli(rbm.v_bias *0 + prop)
+    v = torch.bernoulli(rbm.v_bias *0 + p)
     for _ in range(iteration):
         
         p_h, h = rbm.v_to_h(v)

@@ -65,7 +65,7 @@ class DBN(nn.Module):
         self.W_rec = [nn.Parameter(self.rbm_layers[i].W.data.clone()) for i in range(self.n_layers-1)]
         self.W_gen = [nn.Parameter(self.rbm_layers[i].W.data) for i in range(self.n_layers-1)]
         self.bias_rec = [nn.Parameter(self.rbm_layers[i].h_bias.data.clone()) for i in range(self.n_layers-1)]
-        self.bias_gen = [nn.Parameter(self.rbm_layers[i].h_bias.data) for i in range(self.n_layers-1)]
+        self.bias_gen = [nn.Parameter(self.rbm_layers[i].v_bias.data) for i in range(self.n_layers-1)]
         self.W_mem = nn.Parameter(self.rbm_layers[-1].W.data)
         self.v_bias_mem = nn.Parameter(self.rbm_layers[-1].v_bias.data)
         self.h_bias_mem = nn.Parameter(self.rbm_layers[-1].h_bias.data)
@@ -77,17 +77,15 @@ class DBN(nn.Module):
             self.register_parameter('bias_gen%i'%i, self.bias_gen[i])
         
         
-    def forward(self, v_input, greedy = True, CD_k = 10):
+    def forward(self, v_input, CD_k = 10): #for greedy training
         v = v_input
-        if greedy:
-            v_in = []
-            v_out = []
-            for i_th in range(self.n_layers):
-                v, v_ = self.rbm_layers[i_th](v, CD_k = CD_k)
-                v_in.append(v.clone())
-                v_out.append(v_.clone())
-                v = self.rbm_layers[i_th].v_to_h(v)[1]
-            
-            return v_in, v_out
-        else:
-            
+        
+        v_in = []
+        v_out = []
+        for i_th in range(self.n_layers):
+            v, v_ = self.rbm_layers[i_th](v, CD_k = CD_k)
+            v_in.append(v.clone())
+            v_out.append(v_.clone())
+            v = self.rbm_layers[i_th].v_to_h(v)[1]
+
+        return v_in, v_out
