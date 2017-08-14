@@ -1,1 +1,1 @@
-# Restricted_Boltzmann_Machine_Deep_Belief_Network_with_Annealed_Importance_Sampling_in_Pytorch
+# Restricted Boltzmann Machine and Deep Belief Network with Annealed Importance Sampling in Pytorch
