@@ -89,3 +89,5 @@ class DBN(nn.Module):
                 v = self.rbm_layers[i_th].v_to_h(v)[1]
             
             return v_in, v_out
+        else:
+            

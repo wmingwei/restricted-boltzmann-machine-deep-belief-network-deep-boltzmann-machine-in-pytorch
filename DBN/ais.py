@@ -5,9 +5,9 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 
-def logp(dbn, v, step = 1000, M_Z = 100, M_IS = 100, parallel = False):
+def logp(dbn, v, step = 1000, M_Z = 100, M_IS = 100, parallel = False, seed = None):
     
-    return np.mean(ulogprob(v, dbn, M = M_IS, parallel = parallel))-ais(dbn.rbm_layers[-1], step = step, M = M_Z, parallel = parallel)
+    return np.mean(ulogprob(v, dbn, M = M_IS, parallel = parallel, seed = seed))-ais(dbn.rbm_layers[-1], step = step, M = M_Z, parallel = parallel, seed = seed)
 
 def ais(rbm, step = 100, M = 100, parallel = False, seed = None):
 
@@ -70,14 +70,13 @@ def h_to_v(h, W, v_bias):
     return p_v, v
 
 def free_energy(v, W, h_bias, v_bias):
-
     Wv = np.clip(np.matmul(v,W) + h_bias,-80,80)
     hidden = np.log(1+np.exp(Wv)).sum(1)
     vbias = np.matmul(v, v_bias.T).reshape(hidden.shape)
     return -hidden-vbias
 
-def ulogprob(v, dbn, M = 1000, parallel = False):
-    logw = np.zeros([M, len(v_input)])
+def ulogprob(v, dbn, M = 1000, parallel = False, seed = None):
+    logw = np.zeros([M, len(v)])
     # samples = v_input
     if not parallel:
         for i in range(M):
@@ -85,26 +84,28 @@ def ulogprob(v, dbn, M = 1000, parallel = False):
     else:
         num_cores = multiprocessing.cpu_count()
 
-        results = Parallel(n_jobs=num_cores)(delayed(important_sampling)(v = v, dbn = dbn) for i in range(M))
+        results = Parallel(n_jobs=num_cores)(delayed(important_sampling)(v = v, dbn = dbn, seed = seed) for i in range(M))
         logw += np.asarray(results)
            
     return logmeanexp(logw,0)
 
-def important_sampling(v, dbn):
+def important_sampling(v, dbn, seed = None):
+    
+    np.random.seed(seed)
     
     logw = np.zeros(len(v))
     
     for l in range(dbn.n_layers-1):
         
-        W = dbn.rbm_layers[l].W
-        h_bias = dbn.rbm_layers[l].h_bias
-        v_bias = dbn.rbm_layers[l].v_bias
+        W = dbn.rbm_layers[l].W.data.numpy().T
+        h_bias = dbn.rbm_layers[l].h_bias.data.numpy()
+        v_bias = dbn.rbm_layers[l].v_bias.data.numpy()
         
         logw += -free_energy(v, W, h_bias, v_bias)
-        v = v_to_h(v, W, h_bias, v_bias)[1]
-        logw -= -free_energy_hidden(v, W.T, .v_bias, h_bias)
+        p_v, v = v_to_h(v, W, h_bias)
+        logw -= -free_energy(v, W.T, v_bias, h_bias)
         
-    logw += -free_energy(v, dbn.rbm_layers[-1].W, dbn.rbm_layers[-1].h_bias, dbn.rbm_layers[-1].v_bias)
+    logw += -free_energy(v, dbn.rbm_layers[-1].W.data.numpy().T, dbn.rbm_layers[-1].h_bias.data.numpy(), dbn.rbm_layers[-1].v_bias.data.numpy())
     return logw
 
 
