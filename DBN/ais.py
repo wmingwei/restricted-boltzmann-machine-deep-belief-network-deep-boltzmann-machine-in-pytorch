@@ -5,9 +5,12 @@ from joblib import Parallel, delayed
 import multiprocessing
 
 
-def logp(dbn, v, step = 1000, M_Z = 100, M_IS = 100, parallel = False, seed = None):
+def logp(dbn, v, step = 1000, M_Z = 100, M_IS = 100, parallel = False, seed = None, mean_logp = True):
     
-    return np.mean(ulogprob(v, dbn, M = M_IS, parallel = parallel, seed = seed))-ais(dbn.rbm_layers[-1], step = step, M = M_Z, parallel = parallel, seed = seed)
+    if mean_logp:
+        return np.mean(ulogprob(v, dbn, M = M_IS, parallel = parallel, seed = seed))-ais(dbn.rbm_layers[-1], step = step, M = M_Z, parallel = parallel, seed = seed)
+    else:
+        return ulogprob(v, dbn, M = M_IS, parallel = parallel, seed = seed)-ais(dbn.rbm_layers[-1], step = step, M = M_Z, parallel = parallel, seed = seed)        
 
 def ais(rbm, step = 100, M = 100, parallel = False, seed = None):
 

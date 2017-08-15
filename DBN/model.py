@@ -77,15 +77,12 @@ class DBN(nn.Module):
             self.register_parameter('bias_gen%i'%i, self.bias_gen[i])
         
         
-    def forward(self, v_input, CD_k = 10): #for greedy training
+    def forward(self, v_input, ith_layer, CD_k = 10): #for greedy training
         v = v_input
         
-        v_in = []
-        v_out = []
-        for i_th in range(self.n_layers):
-            v, v_ = self.rbm_layers[i_th](v, CD_k = CD_k)
-            v_in.append(v.clone())
-            v_out.append(v_.clone())
-            v = self.rbm_layers[i_th].v_to_h(v)[1]
+        for ith in range(ith_layer):
+            p_v, v = self.rbm_layers[ith].v_to_h(v)
+            
+        v, v_ = self.rbm_layers[ith_layer](v, CD_k = CD_k)
 
-        return v_in, v_out
+        return v, v_

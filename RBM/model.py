@@ -7,12 +7,15 @@ import torch
 class RBM(nn.Module):
     def __init__(self,
                  n_visible=256,
-                 n_hidden=64):
+                 n_hidden=64,
+                v_bias = None):
         super(RBM, self).__init__()
         self.W = nn.Parameter(torch.Tensor(n_hidden,n_visible).uniform_(-1.0/(n_visible+n_hidden), 1.0/(n_visible+n_hidden)))
-        self.v_bias = nn.Parameter(torch.zeros(n_visible))
+        if type(v_bias) == type(None):
+            self.v_bias = nn.Parameter(torch.zeros(n_visible))
+        else:
+            self.v_bias = nn.Parameter(torch.from_numpy(v_bias.reshape(-1)))
         self.h_bias = nn.Parameter(torch.zeros(n_hidden))
-        self.CD_k = CD_k
     
     def sample_from_p(self,p):
         return torch.bernoulli(p)

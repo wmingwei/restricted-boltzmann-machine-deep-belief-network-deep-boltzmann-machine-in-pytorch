@@ -9,27 +9,46 @@ import multiprocessing
 import torch.nn as nn
 import torch.nn.functional as F
 
-def greedy_train(dbn, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, input_data = None, weight_decay = [0,0], L1_penalty = [0,0], CD_k = 10, test_set = None):
+def greedy_train(dbn, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, input_data = None, weight_decay = [0,0], L1_penalty = [0,0], CD_k = 10, test_set = None, initialize_v = False):
     
     train_set = torch.utils.data.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, shuffle=True)
     
-    optimizers = [optim.Adam(dbn.rbm_layers[i].parameters(), lr = lr[i], weight_decay = weight_decay[i]) for i in range(dbn.n_layers)]
+    # optimizers = [optim.Adam(dbn.rbm_layers[i].parameters(), lr = lr[i], weight_decay = weight_decay[i]) for i in range(dbn.n_layers)]
     
-    for i in range(epoch[0]):
-        
-        for batch_idx, (data, target) in enumerate(train_loader):
-            input_data = Variable(data)
-            
-            v_in, v_out = dbn(input_data, CD_k = CD_k)
-            
-            for i in range(dbn.n_layers):
-                loss = dbn.rbm_layers[i].free_energy(v_in[i].detach()) - dbn.rbm_layers[i].free_energy(v_out[i].detach())
-                loss.backward()
+    for i in range(dbn.n_layers):
+        print("Training the %ith layer"%i)
+        optimizer = optim.Adam(dbn.rbm_layers[i].parameters(), lr = lr[i], weight_decay = weight_decay[i])
+        if initialize_v:
+            v = Variable(input_data)
+            for ith in range(i):
+                p_v, v = dbn.rbm_layers[i].v_to_h(v)
+            dbn.rbm_layers[i].v_bias.data.zero_()
+            dbn.rbm_layers[i].v_bias.data.add_(torch.log(v.mean(0)/(1-v.mean(0))).data)
+        for _ in range(epoch[i]):
+            for batch_idx, (data, target) in enumerate(train_loader):
+                input_data = Variable(data)
+                v, v_ = dbn(v_input = input_data, ith_layer = i, CD_k = CD_k)
                 
-                optimizers[i].step()
+                loss = dbn.rbm_layers[i].free_energy(v.detach()) - dbn.rbm_layers[i].free_energy(v_.detach()) + L1_penalty[0] * torch.sum(torch.abs(dbn.rbm_layers[i].W))
+                loss.backward()
+                optimizer.step()
+                optimizer.zero_grad()
+                
+#     for _ in range(epoch[0]):
+        
+#         for batch_idx, (data, target) in enumerate(train_loader):
+#             input_data = Variable(data)
             
-                optimizers[i].zero_grad()
+#             v_in, v_out = dbn(input_data, CD_k = CD_k)
+            
+#             for i in range(dbn.n_layers):
+#                 loss = dbn.rbm_layers[i].free_energy(v_in[i].detach()) - dbn.rbm_layers[i].free_energy(v_out[i].detach())
+#                 loss.backward()
+                
+#                 optimizers[i].step()
+            
+#                 optimizers[i].zero_grad()
             
         if not type(test_set) == type(None):
             print("epoch %i: "%i, reconstruct_error(rbm, Variable(test_set)))
@@ -132,7 +151,7 @@ def h_to_v(h, W, v_bias):
     v = torch.bernoulli(p_v)
     return p_v,v
     
-def generate(dbn, iteration = 1, prop_input = None):
+def generate(dbn, iteration = 1, prop_input = None, annealed = False):
     
     if not type(prop_input) == type(None):
         prop_v = Variable(torch.from_numpy(prop_input).type(torch.FloatTensor))
@@ -143,11 +162,26 @@ def generate(dbn, iteration = 1, prop_input = None):
         prop = 0.5
         
     v = torch.bernoulli(dbn.rbm_layers[-1].v_bias *0 + prop)
-    for _ in range(iteration):
-        
-        p_h, h = dbn.rbm_layers[-1].v_to_h(v)
-        
-        p_v, v = dbn.rbm_layers[-1].h_to_v(h)
+    
+    if not annealed:
+        for _ in range(iteration):
+
+            p_h, h = dbn.rbm_layers[-1].v_to_h(v)
+
+            p_v, v = dbn.rbm_layers[-1].h_to_v(h)
+    else:
+        for temp in np.linspace(3,0.6,25):
+            for i in dbn.rbm_layers[-1].parameters():
+                i.data *= 1.0/temp
+                
+            for _ in range(iteration):
+
+                p_h, h = dbn.rbm_layers[-1].v_to_h(v)
+
+                p_v, v = dbn.rbm_layers[-1].h_to_v(h)    
+
+            for i in dbn.rbm_layers[-1].parameters():
+                i.data *= temp
         
     for i in range(dbn.n_layers-1):
         p_v, v = dbn.rbm_layers[-2-i].h_to_v(v)

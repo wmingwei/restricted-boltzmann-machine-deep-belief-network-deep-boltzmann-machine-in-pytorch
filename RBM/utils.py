@@ -7,15 +7,28 @@ from torch.autograd import Variable
 from joblib import Parallel, delayed
 import multiprocessing
 
-def generate(rbm, iteration = 1, p = 0.5):
+def generate(rbm, iteration = 1, p = 0.5, annealed = False):
     
     v = torch.bernoulli(rbm.v_bias *0 + p)
-    for _ in range(iteration):
-        
-        p_h, h = rbm.v_to_h(v)
-        
-        p_v, v = rbm.h_to_v(h)
-        
+    if not annealed:
+        for _ in range(iteration):
+
+            p_h, h = rbm.v_to_h(v)
+
+            p_v, v = rbm.h_to_v(h)
+    else:
+        for temp in np.linspace(3,0.6,25):
+            for i in rbm.parameters():
+                i.data *= 1.0/temp
+                
+            for _ in range(iteration):
+
+                p_h, h = rbm.v_to_h(v)
+
+                p_v, v = rbm.h_to_v(h)    
+
+            for i in rbm.parameters():
+                i.data *= temp
     return v
 
 
