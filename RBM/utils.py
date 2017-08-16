@@ -9,7 +9,7 @@ import multiprocessing
 
 def generate(rbm, iteration = 1, p = 0.5, annealed = False):
     
-    v = torch.bernoulli(rbm.v_bias *0 + p)
+    v = torch.bernoulli((rbm.v_bias *0 + p).view(1,-1).repeat(n, 0))
     if not annealed:
         for _ in range(iteration):
 

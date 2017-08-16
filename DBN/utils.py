@@ -22,13 +22,13 @@ def greedy_train(dbn, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, in
         if initialize_v:
             v = Variable(input_data)
             for ith in range(i):
-                p_v, v = dbn.rbm_layers[i].v_to_h(v)
+                p_v, v = dbn.rbm_layers[ith].v_to_h(v)
             dbn.rbm_layers[i].v_bias.data.zero_()
             dbn.rbm_layers[i].v_bias.data.add_(torch.log(v.mean(0)/(1-v.mean(0))).data)
         for _ in range(epoch[i]):
             for batch_idx, (data, target) in enumerate(train_loader):
-                input_data = Variable(data)
-                v, v_ = dbn(v_input = input_data, ith_layer = i, CD_k = CD_k)
+                data = Variable(data)
+                v, v_ = dbn(v_input = data, ith_layer = i, CD_k = CD_k)
                 
                 loss = dbn.rbm_layers[i].free_energy(v.detach()) - dbn.rbm_layers[i].free_energy(v_.detach()) + L1_penalty[0] * torch.sum(torch.abs(dbn.rbm_layers[i].W))
                 loss.backward()
@@ -117,22 +117,25 @@ def sleep_wake(dbn, optimizer, lr = 1e-2, CD_k = 10, v = None, batch_size = 1):
     for ith_rbm in range(dbn.n_layers-1):
 
         #updata recgnition
-        dbn.W_rec[ith_rbm].grad.data +=  -(sleep_states[ith_rbm].t().mm(sleep_states[ith_rbm+1] - v_to_h(sleep_states[ith_rbm], dbn.W_rec[ith_rbm], dbn.bias_rec[ith_rbm])[1])).data/batch_size
+        dbn.W_rec[ith_rbm].grad.data += (-(sleep_states[ith_rbm].t().mm(sleep_states[ith_rbm+1] - v_to_h(sleep_states[ith_rbm], dbn.W_rec[ith_rbm], dbn.bias_rec[ith_rbm])[1])).data/batch_size).t()
+        
 
-        dbn.bias_rec[ith_rbm].grad.data += -(sleep_states[ith_rbm+1] - v_to_h(sleep_states[ith_rbm], dbn.W_rec[ith_rbm], dbn.bias_rec[ith_rbm])[1]).sum(0).data/batch_size
-
+        dbn.bias_rec[ith_rbm].grad.data+=(-(sleep_states[ith_rbm+1] - v_to_h(sleep_states[ith_rbm], dbn.W_rec[ith_rbm], dbn.bias_rec[ith_rbm])[1]).sum(0).data/batch_size)
+        
+        # print(dbn.bias_rec[ith_rbm].grad.data.size())
+        # print((-(sleep_states[ith_rbm+1] - v_to_h(sleep_states[ith_rbm], dbn.W_rec[ith_rbm], dbn.bias_rec[ith_rbm])[1]).sum(0).data/batch_size).size())
         #updata generation
-        dbn.W_gen[ith_rbm].grad.data += -(wake_states[ith_rbm] - h_to_v(wake_states[ith_rbm+1], dbn.W_gen[ith_rbm], dbn.bias_gen[ith_rbm])[1]).t().mm(wake_states[ith_rbm+1]).data/batch_size
+        dbn.W_gen[ith_rbm].grad.data+=(-(wake_states[ith_rbm] - h_to_v(wake_states[ith_rbm+1], dbn.W_gen[ith_rbm], dbn.bias_gen[ith_rbm])[1]).t().mm(wake_states[ith_rbm+1]).data/batch_size).t()
 
-        dbn.bias_gen[ith_rbm].grad.data += -(wake_states[ith_rbm] - h_to_v(wake_states[ith_rbm+1], dbn.W_gen[ith_rbm], dbn.bias_gen[ith_rbm])[1]).sum(0).data/batch_size
+        dbn.bias_gen[ith_rbm].grad.data+=(-(wake_states[ith_rbm] - h_to_v(wake_states[ith_rbm+1], dbn.W_gen[ith_rbm], dbn.bias_gen[ith_rbm])[1]).sum(0).data/batch_size)
 
     #updata memory
 
-    dbn.W_mem.grad.data += -(wake_states[-2].t().mm(wake_states[-1]) - sleep_states[-2].t().mm(sleep_states[-1])).data/batch_size
+    dbn.W_mem.grad.data+=(-(wake_states[-2].t().mm(wake_states[-1]) - sleep_states[-2].t().mm(sleep_states[-1])).data/batch_size).t()
 
-    dbn.v_bias_mem.grad.data += -(wake_states[-2] - sleep_states[-2]).sum(0).data/batch_size
+    dbn.v_bias_mem.grad.data+=(-(wake_states[-2] - sleep_states[-2]).sum(0).data/batch_size)
 
-    dbn.h_bias_mem.grad.data = -(wake_states[-1] - sleep_states[-1]).sum(0).data/batch_size
+    dbn.h_bias_mem.grad.data+=(-(wake_states[-1] - sleep_states[-1]).sum(0).data/batch_size)
 
     optimizer.step()
     optimizer.zero_grad()
@@ -151,7 +154,7 @@ def h_to_v(h, W, v_bias):
     v = torch.bernoulli(p_v)
     return p_v,v
     
-def generate(dbn, iteration = 1, prop_input = None, annealed = False):
+def generate(dbn, iteration = 1, prop_input = None, annealed = False, n = 0):
     
     if not type(prop_input) == type(None):
         prop_v = Variable(torch.from_numpy(prop_input).type(torch.FloatTensor))
@@ -161,7 +164,8 @@ def generate(dbn, iteration = 1, prop_input = None, annealed = False):
     else:
         prop = 0.5
         
-    v = torch.bernoulli(dbn.rbm_layers[-1].v_bias *0 + prop)
+    h = torch.bernoulli((dbn.rbm_layers[-1].h_bias *0 + prop).view(1,-1).repeat(n, 0))
+    p_v, v = dbn.rbm_layers[-1].h_to_v(h)
     
     if not annealed:
         for _ in range(iteration):

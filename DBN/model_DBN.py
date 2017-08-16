@@ -7,7 +7,7 @@ import torch
 class RBM(nn.Module):
     def __init__(self,
                  n_visible=256,
-                 n_hidden=64,):
+                 n_hidden=64):
         super(RBM, self).__init__()
         self.W = nn.Parameter(torch.Tensor(n_hidden,n_visible).uniform_(-1.0/(n_visible+n_hidden), 1.0/(n_visible+n_hidden)))
         self.v_bias = nn.Parameter(torch.zeros(n_visible))
