@@ -164,7 +164,7 @@ def generate(dbn, iteration = 1, prop_input = None, annealed = False, n = 0):
     else:
         prop = 0.5
         
-    h = torch.bernoulli((dbn.rbm_layers[-1].h_bias *0 + prop).view(1,-1).repeat(n, 0))
+    h = torch.bernoulli((dbn.rbm_layers[-1].h_bias *0 + prop).view(1,-1).repeat(n, 1))
     p_v, v = dbn.rbm_layers[-1].h_to_v(h)
     
     if not annealed:

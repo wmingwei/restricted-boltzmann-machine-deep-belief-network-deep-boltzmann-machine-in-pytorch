@@ -116,7 +116,7 @@ class DBM(nn.Module):
         even_layer = [v]
         odd_layer = []
         for i in range(1, self.n_even_layers):
-            even_layer.append(torch.bernoulli(self.bias[2*i]*0+0.5))
+            even_layer.append(torch.bernoulli(F.sigmoid(self.bias[2*i])))
             
         for _ in range(k_positive):
             p_odd_layer, odd_layer = self.even_to_odd(even_layer)

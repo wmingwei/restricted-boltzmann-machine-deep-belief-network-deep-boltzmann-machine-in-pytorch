@@ -52,20 +52,24 @@ def greedy_train(dbm, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, in
             
 #                 optimizers[i].zero_grad()
 
-def joint_train(dbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weight_decay = 0, k_positive=10, k_negative=10):
+def joint_train(dbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weight_decay = 0, k_positive=10, k_negative=10, alpha = [1e-1,1e-1,1]):
+    u1 = nn.Parameter(torch.zeros(1))
+    u2 = nn.Parameter(torch.zeros(1))
     optimizer = optim.Adam(dbm.parameters(), lr = lr, weight_decay = weight_decay)
     train_set = torch.utils.data.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, shuffle=True)
-    
+    optimizer_u = optim.Adam([u1,u2], lr = lr/1000, weight_decay = weight_decay)
     for _ in range(epoch):
-        print("training epoch %i"%_)
+        print("training epoch %i with u1 = %.4f, u2 = %.4f"%_%u1%u2)
         for batch_idx, (data, target) in enumerate(train_loader):
             data = Variable(data)
             positive_phase, negative_phase= dbm(v_input = data, k_positive = k_positive, k_negative=k_negative, greedy = False)
-            loss = energy(dbm = dbm, layer = positive_phase) - energy(dbm = dbm, layer = negative_phase)
+            loss = energy(dbm = dbm, layer = positive_phase) - energy(dbm = dbm, layer = negative_phase)+alpha[0] * torch.norm(torch.norm(dbm.W[0],2,1)-u1)**2 + alpha[1]*torch.norm(torch.norm(dbm2.W[1],2,1)-u2)**2 + alpha[2] * (u1 - u2)**2
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
+            optimizer_u.step()
+            optimizer_u.zero_grad()
             
             
 def energy(dbm, layer):
@@ -78,11 +82,11 @@ def energy(dbm, layer):
 def generate(dbm, iteration = 1, n = 1):
     even_layer = []
     odd_layer = []
-    for i in range(0, self.n_odd_layers):
-        even_layer.append(torch.bernoulli((self.bias[2*i+1]*0+0.5).view(1,-1).repeat(n, 0)))
+    for i in range(0, dbm.n_odd_layers):
+        odd_layer.append(torch.bernoulli((dbm.bias[2*i+1]*0+0.5).view(1,-1).repeat(n, 1)))
     for _ in range(iteration):
-        p_even_layer, even_layer = self.odd_to_even(odd_layer)
-        p_odd_layer, odd_layer = self.even_to_odd(even_layer)
+        p_even_layer, even_layer = dbm.odd_to_even(odd_layer)
+        p_odd_layer, odd_layer = dbm.even_to_odd(even_layer)
     
     return even_layer[0]
         
