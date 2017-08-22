@@ -7,28 +7,14 @@ from torch.autograd import Variable
 from joblib import Parallel, delayed
 import multiprocessing
 
-def generate(rbm, iteration = 1, p = 0.5, annealed = False):
+def generate(rbm, iteration = 1, p = 0.5, n = 1):
     
     v = torch.bernoulli((rbm.v_bias *0 + p).view(1,-1).repeat(n, 1))
-    if not annealed:
-        for _ in range(iteration):
+    for _ in range(iteration):
 
-            p_h, h = rbm.v_to_h(v)
+        p_h, h = rbm.v_to_h(v)
 
-            p_v, v = rbm.h_to_v(h)
-    else:
-        for temp in np.linspace(3,0.6,25):
-            for i in rbm.parameters():
-                i.data *= 1.0/temp
-                
-            for _ in range(iteration):
-
-                p_h, h = rbm.v_to_h(v)
-
-                p_v, v = rbm.h_to_v(h)    
-
-            for i in rbm.parameters():
-                i.data *= temp
+        p_v, v = rbm.h_to_v(h)
     return v
 
 
@@ -49,9 +35,9 @@ def train(rbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weigh
     for i in range(epoch):
         
         for batch_idx, (data, target) in enumerate(train_loader):
-            input_data = Variable(data, CD_k = CD_k)
+            input_data = Variable(data)
             
-            v, v_ = rbm(input_data)
+            v, v_ = rbm(input_data, CD_k = CD_k)
             
             loss = rbm.free_energy(v) - rbm.free_energy(v_.detach())
             

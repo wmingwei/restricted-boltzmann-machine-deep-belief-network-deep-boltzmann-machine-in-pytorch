@@ -19,12 +19,12 @@ class RBM(nn.Module):
     def v_to_h(self,v):
         
         # p_h = F.sigmoid(v.mm(self.W.t()) + self.h_bias.repeat(v.size()[0],1))
-        p_h = F.sigmoid(F.linear(v,self.W,self.h_bias))
+        p_h = torch.sigmoid(F.linear(v,self.W,self.h_bias))
         sample_h = self.sample_from_p(p_h)
         return p_h,sample_h
     
     def h_to_v(self,h):
-        p_v = F.sigmoid(F.linear(h,self.W.t(),self.v_bias))
+        p_v = torch.sigmoid(F.linear(h,self.W.t(),self.v_bias))
         sample_v = self.sample_from_p(p_v)
         return p_v,sample_v
         
@@ -77,11 +77,11 @@ class DBM(nn.Module):
         even_output= []
         for i in range(self.n_even_layers):
             if i == 0:
-                even_p_output.append(F.sigmoid(F.linear(odd_input[i],self.W[2*i].t(),self.bias[2*i])))
+                even_p_output.append(torch.sigmoid(F.linear(odd_input[i],self.W[2*i].t(),self.bias[2*i])))
             elif (self.n_even_layers > self.n_odd_layers) and i == self.n_even_layers - 1:
-                even_p_output.append(F.sigmoid(F.linear(odd_input[i-1],self.W[2*i-1],self.bias[2*i])))
+                even_p_output.append(torch.sigmoid(F.linear(odd_input[i-1],self.W[2*i-1],self.bias[2*i])))
             else:
-                even_p_output.append(F.sigmoid(F.linear(odd_input[i-1],self.W[2*i-1],self.bias[2*i]) + F.linear(odd_input[i],self.W[2*i].t())))
+                even_p_output.append(torch.sigmoid(F.linear(odd_input[i-1],self.W[2*i-1],self.bias[2*i]) + F.linear(odd_input[i],self.W[2*i].t())))
         for i in even_p_output:
             even_output.append(torch.bernoulli(i))
             
@@ -92,9 +92,9 @@ class DBM(nn.Module):
         odd_output = []
         for i in range(self.n_odd_layers):
             if (self.n_even_layers == self.n_odd_layers) and i == self.n_odd_layers - 1:
-                odd_p_output.append(F.sigmoid(F.linear(even_input[i],self.W[2*i],self.bias[2*i+1])))
+                odd_p_output.append(torch.sigmoid(F.linear(even_input[i],self.W[2*i],self.bias[2*i+1])))
             else:
-                odd_p_output.append(F.sigmoid(F.linear(even_input[i],self.W[2*i],self.bias[2*i+1]) + F.linear(even_input[i+1],self.W[2*i+1].t())))
+                odd_p_output.append(torch.sigmoid(F.linear(even_input[i],self.W[2*i],self.bias[2*i+1]) + F.linear(even_input[i+1],self.W[2*i+1].t())))
         
         for i in odd_p_output:
             odd_output.append(torch.bernoulli(i))
@@ -116,7 +116,7 @@ class DBM(nn.Module):
         even_layer = [v]
         odd_layer = []
         for i in range(1, self.n_even_layers):
-            even_layer.append(torch.bernoulli(F.sigmoid(self.bias[2*i])))
+            even_layer.append(torch.bernoulli(torch.sigmoid(self.bias[2*i].repeat(v.size()[0],1))))
             
         for _ in range(k_positive):
             p_odd_layer, odd_layer = self.even_to_odd(even_layer)

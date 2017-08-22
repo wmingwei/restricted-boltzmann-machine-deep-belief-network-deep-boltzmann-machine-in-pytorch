@@ -9,7 +9,7 @@ import multiprocessing
 import torch.nn as nn
 import torch.nn.functional as F
 
-def greedy_train(dbm, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, input_data = None, weight_decay = [0,0], L1_penalty = [0,0], CD_k = 10, test_set = None, initialize_v = False):
+def greedy_train(dbm, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, input_data = None, weight_decay = [0,0], L1_penalty = [0,0], CD_k = 10, test_set = None, initialize_v = False, save_model = True):
     
     train_set = torch.utils.data.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, shuffle=True)
@@ -34,6 +34,8 @@ def greedy_train(dbm, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, in
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
+        if save_model:
+            torch.save(dbm.rbm_layers[i], "./trained_rbm_layer%i"%i)
         if i > 0:
             dbm.bias[i].data = (dbm.rbm_layers[i-1].h_bias.data + dbm.rbm_layers[i].v_bias.data)/2
                 
@@ -55,27 +57,28 @@ def greedy_train(dbm, lr = [1e-3, 1e-4], epoch = [100, 100], batch_size = 50, in
 def joint_train(dbm, lr = 1e-3, epoch = 100, batch_size = 50, input_data = None, weight_decay = 0, k_positive=10, k_negative=10, alpha = [1e-1,1e-1,1]):
     u1 = nn.Parameter(torch.zeros(1))
     u2 = nn.Parameter(torch.zeros(1))
-    optimizer = optim.Adam(dbm.parameters(), lr = lr, weight_decay = weight_decay)
+    # optimizer = optim.Adam(dbm.parameters(), lr = lr, weight_decay = weight_decay)
+    optimizer = optim.SGD(dbm.parameters(), lr = lr, momentum = 0.5)
     train_set = torch.utils.data.dataset.TensorDataset(input_data, torch.zeros(input_data.size()[0]))
     train_loader = torch.utils.data.DataLoader(train_set, batch_size = batch_size, shuffle=True)
     optimizer_u = optim.Adam([u1,u2], lr = lr/1000, weight_decay = weight_decay)
     for _ in range(epoch):
-        print("training epoch %i with u1 = %.4f, u2 = %.4f"%_%u1%u2)
+        print("training epoch %i with u1 = %.4f, u2 = %.4f"%(_, u1.data.numpy()[0], u2.data.numpy()[0]))
         for batch_idx, (data, target) in enumerate(train_loader):
             data = Variable(data)
             positive_phase, negative_phase= dbm(v_input = data, k_positive = k_positive, k_negative=k_negative, greedy = False)
-            loss = energy(dbm = dbm, layer = positive_phase) - energy(dbm = dbm, layer = negative_phase)+alpha[0] * torch.norm(torch.norm(dbm.W[0],2,1)-u1)**2 + alpha[1]*torch.norm(torch.norm(dbm2.W[1],2,1)-u2)**2 + alpha[2] * (u1 - u2)**2
+            loss = energy(dbm = dbm, layer = positive_phase) - energy(dbm = dbm, layer = negative_phase)+alpha[0] * torch.norm(torch.norm(dbm.W[0],2,1)-u1.repeat(dbm.W[0].size()[0],1))**2 + alpha[1]*torch.norm(torch.norm(dbm.W[1],2,1)-u2.repeat(dbm.W[1].size()[0],1))**2 + alpha[2] * (u1 - u2)**2
             loss.backward()
             optimizer.step()
             optimizer.zero_grad()
             optimizer_u.step()
-            optimizer_u.zero_grad()
-            
+            optimizer_u.zero_grad()            
             
 def energy(dbm, layer):
-    E = -F.linear(dbm.bias[0],layer[0]).sum()
+    E = -F.linear(layer[0], dbm.bias[0].view(1,-1)).sum()
     for i in range(dbm.n_layers):
-        E -= F.linear(layer[i], dbm.W[i]).view(-1)@(layer[i+1].view(-1)) + F.linear(dbm.bias[i+1],layer[i+1]).sum()
+        
+        E -= F.linear(layer[i], dbm.W[i]).view(-1)@(layer[i+1].view(-1)) + F.linear(layer[i+1], dbm.bias[i+1].view(1,-1)).sum()
     
     return E
 

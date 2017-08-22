@@ -120,7 +120,7 @@ def important_sampling(v, W, bias, k, seed = None):
     logw = np.zeros(len(v))
     even_layer = [v]
     for i in range(1,int(len(bias)/2)+1):
-        even_layer.append(np.random.binomial(1,p = sigmoid(bias[2*i])))
+        even_layer.append(np.random.binomial(1,p = sigmoid(bias[2*i]).reshape(1,-1).repeat(len(v),axis = 0)))
     # [print(i.size()) for i in even_layer]
     for _ in range(k):
         p_odd_layer, odd_layer = even_to_odd(even_layer, W, bias)
